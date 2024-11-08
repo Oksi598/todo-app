@@ -1,25 +1,34 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect } from "react";
+import MainPage from "./pages/mainPage/MainPage";
+import Login from "./pages/auth/login/Login";
+import Register from "./pages/auth/register/Register";
+import { Route, Routes, Link } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { useAction } from "./hooks/useAction";
+import { Container, Grid, Button } from "@mui/material";
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
-}
+const App = () => {
+    const { isAuth } = useSelector((store) => store.auth);
+    const { signInByToken } = useAction();
+
+    useEffect(() => {
+        const token = localStorage.getItem("auth");
+
+        if (token !== null && token !== undefined) {
+            signInByToken(token);
+        }
+    }, [signInByToken]);
+
+    return (
+        <Container sx={{ pt: 3 }} fixed maxWidth="xl">
+            <Routes>
+                <Route path="/" element={<MainPage />} />
+
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+            </Routes>
+        </Container>
+    );
+};
 
 export default App;
