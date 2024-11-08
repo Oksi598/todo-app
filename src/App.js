@@ -23,7 +23,6 @@ const App = () => {
         <Container sx={{ pt: 3 }} fixed maxWidth="xl">
             <Routes>
                 <Route path="/" element={<MainPage />} />
-
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
             </Routes>
