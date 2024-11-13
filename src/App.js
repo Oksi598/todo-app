@@ -17,7 +17,7 @@ const App = () => {
         if (token !== null && token !== undefined) {
             signInByToken(token);
         }
-    }, [signInByToken]);
+    }, []);
 
     return (
         <Container sx={{ pt: 3 }} fixed maxWidth="xl">

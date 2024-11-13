@@ -17,23 +17,26 @@ import {
     CardActions,
     AppBar,
     Toolbar,
-    IconButton
+    IconButton,
+    FormControlLabel,
+    Checkbox,
 } from "@mui/material";
-import { FormControlLabel, Checkbox } from "@mui/material";
 import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";  // Assuming you are using react-router-dom for routing
-import AccountCircleIcon from '@mui/icons-material/AccountCircle';
+import { Link } from "react-router-dom";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 
 const MainPage = () => {
-    const { user } = useSelector((state) => state.auth); // Getting user information
+    const { user } = useSelector((state) => state.auth);
     const [tasks, setTasks] = useState([]);
     const [newTask, setNewTask] = useState("");
     const [newDescription, setNewDescription] = useState("");
     const [category, setCategory] = useState("");
-    const [priority, setPriority] = useState(0); // 0 - low, 1 - medium, 2 - high
+    const [priority, setPriority] = useState(0);
     const [dueDate, setDueDate] = useState("");
-    const [statusFilter, setStatusFilter] = useState(""); // For filtering by status
-    const [categoryFilter, setCategoryFilter] = useState(""); // For filtering by category
+    const [statusFilter, setStatusFilter] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("");
+    const [showArchived, setShowArchived] = useState(false);
+    
 
     useEffect(() => {
         if (user && user.token) {
@@ -41,23 +44,34 @@ const MainPage = () => {
         } else {
             console.error("User is not authorized.");
         }
-    }, [user]);
+    }, [user, showArchived, statusFilter, categoryFilter]);
 
     const fetchTasks = async () => {
         try {
             const token = user?.token || localStorage.getItem("token");
-            if (!token) {
-                console.error("Token is not available, user is not authenticated");
-                return;
-            }
-            const response = await axios.get("http://localhost:5000/api/tasks", {
+            if (!token) return;
+      
+            const params = {
+                status: statusFilter === "completed" ? true : statusFilter === "pending" ? false : undefined,
+                category: categoryFilter || undefined,
+            };
+      
+            const url = showArchived
+                ? "https://localhost:5000/api/tasks/archived"
+                : "https://localhost:5000/api/tasks";
+      
+            const response = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` },
+                params,
             });
+      
+            console.log(response.data);
             setTasks(response.data);
         } catch (error) {
             console.error("Error fetching tasks:", error);
         }
-    };
+      };
+      
 
     const handleAddTask = async () => {
         if (newTask.trim() === "") return;
@@ -65,20 +79,15 @@ const MainPage = () => {
         const task = {
             title: newTask,
             description: newDescription,
-            category: category,
-            priority: priority,
-            dueDate: dueDate,
+            category,
+            priority,
+            dueDate,
             status: false,
         };
 
         try {
             const token = user?.token || localStorage.getItem("token");
-            if (!token) {
-                console.error("Token is not available, user is not authenticated");
-                return;
-            }
-
-            await axios.post("http://localhost:5000/api/tasks", task, {
+            await axios.post("https://localhost:5000/api/tasks", task, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             setNewTask("");
@@ -95,18 +104,11 @@ const MainPage = () => {
     const handleTaskCompletion = async (taskId, currentStatus) => {
         try {
             const token = user?.token || localStorage.getItem("token");
-            if (!token) {
-                console.error("Token is not available, user is not authenticated");
-                return;
-            }
-
-            const updatedTask = {
-                status: !currentStatus,
-            };
-
-            await axios.put(`http://localhost:5000/api/tasks/${taskId}`, updatedTask, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await axios.put(
+                `https://localhost:5000/api/tasks/${taskId}`,
+                { status: !currentStatus },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
             fetchTasks();
         } catch (error) {
             console.error("Error updating task completion:", error);
@@ -116,12 +118,7 @@ const MainPage = () => {
     const handleDeleteTask = async (taskId) => {
         try {
             const token = user?.token || localStorage.getItem("token");
-            if (!token) {
-                console.error("Token is not available, user is not authenticated");
-                return;
-            }
-
-            await axios.delete(`http://localhost:5000/api/tasks/${taskId}`, {
+            await axios.delete(`https://localhost:5000/api/tasks/${taskId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchTasks();
@@ -130,6 +127,21 @@ const MainPage = () => {
         }
     };
 
+    const handleArchiveTask = async (taskId) => {
+        try {
+            const token = user?.token || localStorage.getItem("token");
+            await axios.post(`https://localhost:5000/api/tasks/${taskId}/archive`, {}, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            fetchTasks();
+        } catch (error) {
+            console.error("Error archiving task:", error);
+        }
+    };
+
+    const toggleArchivedView = () => {
+        setShowArchived(!showArchived);
+    };
     const filteredTasks = tasks.filter((task) => {
         return (
             (statusFilter === "" || task.status === (statusFilter === "completed")) &&
@@ -137,147 +149,171 @@ const MainPage = () => {
         );
     });
 
+
     return (
         <>
-            {/* AppBar for Login/Register buttons */}
-            <AppBar position="static">
-                <Toolbar sx={{ justifyContent: "flex-end" }}>
-                    {!user ? (
-                        <>
-                            <Button color="inherit" component={Link} to="/login">Login</Button>
-                            <Button color="inherit" component={Link} to="/register">Register</Button>
-                        </>
-                    ) : (
-                        <IconButton color="inherit">
-                            <AccountCircleIcon />
-                        </IconButton>
-                    )}
-                </Toolbar>
-            </AppBar>
+    <AppBar position="static">
+        <Toolbar sx={{ justifyContent: "space-between" }}>
+            <Typography variant="h6">ToDo App</Typography>
+            <div>
+                <Button color="inherit" component={Link} to="/login">
+                    Вхід
+                </Button>
+                <Button color="inherit" component={Link} to="/register">
+                    Реєстрація
+                </Button>
+            </div>
+        </Toolbar>
+    </AppBar>
 
-            <Container sx={{ pt: 3 }}>
-                <Typography variant="h4" gutterBottom align="center">
-                    Список справ
-                </Typography>
+    <Container sx={{ pt: 4 }}>
+        <Typography variant="h4" gutterBottom align="center">
+            Список справ
+        </Typography>
 
-                <Box sx={{ mb: 3 }}>
-                    <Grid container spacing={2} justifyContent="center">
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                fullWidth
-                                label="Назва завдання"
-                                value={newTask}
-                                onChange={(e) => setNewTask(e.target.value)}
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                fullWidth
-                                label="Опис завдання"
-                                value={newDescription}
-                                onChange={(e) => setNewDescription(e.target.value)}
-                            />
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth>
-                                <InputLabel>Категорія</InputLabel>
-                                <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-                                    <MenuItem value="work">Робота</MenuItem>
-                                    <MenuItem value="study">Навчання</MenuItem>
-                                    <MenuItem value="personal">Особисте</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <FormControl fullWidth>
-                                <InputLabel>Пріоритет</InputLabel>
-                                <Select value={priority} onChange={(e) => setPriority(e.target.value)}>
-                                    <MenuItem value={0}>Низький</MenuItem>
-                                    <MenuItem value={1}>Середній</MenuItem>
-                                    <MenuItem value={2}>Високий</MenuItem>
-                                </Select>
-                            </FormControl>
-                        </Grid>
-                        <Grid item xs={12} md={4}>
-                            <TextField
-                                fullWidth
-                                label="Термін виконання"
-                                type="datetime-local"
-                                value={dueDate}
-                                onChange={(e) => setDueDate(e.target.value)}
-                                InputLabelProps={{ shrink: true }}
-                            />
-                        </Grid>
-                        <Grid item xs={12}>
-                            <Button variant="contained" fullWidth onClick={handleAddTask}>
-                                Додати завдання
-                            </Button>
-                        </Grid>
-                    </Grid>
-                </Box>
-
-                <Typography variant="h6" gutterBottom>
-                    Фільтри
-                </Typography>
-
-                <Grid container spacing={2} justifyContent="center">
-                    <Grid item xs={12} md={4}>
-                        <FormControl fullWidth>
-                            <InputLabel>Статус</InputLabel>
-                            <Select
-                                value={statusFilter}
-                                onChange={(e) => setStatusFilter(e.target.value)}
-                                label="Статус"
-                            >
-                                <MenuItem value="">Усі</MenuItem>
-                                <MenuItem value="completed">Виконано</MenuItem>
-                                <MenuItem value="pending">Невиконано</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid>
-                    <Grid item xs={12} md={4}>
-                        <FormControl fullWidth>
-                            <InputLabel>Категорія</InputLabel>
-                            <Select
-                                value={categoryFilter}
-                                onChange={(e) => setCategoryFilter(e.target.value)}
-                                label="Категорія"
-                            >
-                                <MenuItem value="">Усі</MenuItem>
-                                <MenuItem value="work">Робота</MenuItem>
-                                <MenuItem value="study">Навчання</MenuItem>
-                                <MenuItem value="personal">Особисте</MenuItem>
-                            </Select>
-                        </FormControl>
-                    </Grid>
+        {/* Форма додавання завдання */}
+        <Box sx={{ mb: 4 }}>
+            <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                    <TextField
+                        fullWidth
+                        label="Назва завдання"
+                        value={newTask}
+                        onChange={(e) => setNewTask(e.target.value)}
+                    />
                 </Grid>
+                <Grid item xs={12} md={6}>
+                    <TextField
+                        fullWidth
+                        label="Опис завдання"
+                        value={newDescription}
+                        onChange={(e) => setNewDescription(e.target.value)}
+                    />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                        <InputLabel>Категорія</InputLabel>
+                        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+                            <MenuItem value="work">Робота</MenuItem>
+                            <MenuItem value="study">Навчання</MenuItem>
+                            <MenuItem value="personal">Особисте</MenuItem>
+                        </Select>
+                    </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <FormControl fullWidth>
+                        <InputLabel>Пріоритет</InputLabel>
+                        <Select value={priority} onChange={(e) => setPriority(e.target.value)}>
+                            <MenuItem value={0}>Низький</MenuItem>
+                            <MenuItem value={1}>Середній</MenuItem>
+                            <MenuItem value={2}>Високий</MenuItem>
+                        </Select>
+                    </FormControl>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                    <Button variant="contained" fullWidth onClick={handleAddTask}>
+                        Додати завдання
+                    </Button>
+                </Grid>
+            </Grid>
+        </Box>
 
-                <Grid container spacing={2} sx={{ mt: 3 }} justifyContent="center">
-                    {filteredTasks.map((task) => (
-                        <Grid item xs={12} md={4} key={task.id}>
-                            <Card elevation={3}>
-                                <CardContent>
-                                    <Typography variant="h6">{task.title}</Typography>
-                                    <Typography variant="body2" color="textSecondary">{task.description}</Typography>
-                                    <Typography variant="body2">Категорія: {task.category}</Typography>
-                                    <Typography variant="body2">Пріоритет: {task.priority === 0 ? "Низький" : task.priority === 1 ? "Середній" : "Високий"}</Typography>
-                                    <Typography variant="body2">Термін: {new Date(task.dueDate).toLocaleString()}</Typography>
-                                </CardContent>
-                                <CardActions>
-                                    <FormControlLabel
-                                        control={<Checkbox checked={task.status} onChange={() => handleTaskCompletion(task.id, task.status)} />}
-                                        label={task.status ? "Виконано" : "Невиконано"}
+        {/* Фільтри завдань */}
+        <Box sx={{ mb: 4 }}>
+            <Grid container spacing={2} justifyContent="center">
+                <Grid item xs={12} md={5}>
+                    <FormControl fullWidth>
+                        <InputLabel>Фільтр за статусом</InputLabel>
+                        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                            <MenuItem value="">Усі</MenuItem>
+                            <MenuItem value="completed">Виконано</MenuItem>
+                            <MenuItem value="pending">Невиконано</MenuItem>
+                        </Select>
+                    </FormControl>
+                </Grid>
+                <Grid item xs={12} md={5}>
+                    <FormControl fullWidth>
+                        <InputLabel>Фільтр за категорією</InputLabel>
+                        <Select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
+                            <MenuItem value="">Усі</MenuItem>
+                            <MenuItem value="work">Робота</MenuItem>
+                            <MenuItem value="study">Навчання</MenuItem>
+                            <MenuItem value="personal">Особисте</MenuItem>
+                        </Select>
+                    </FormControl>
+                </Grid>
+                <Grid item xs={12} md={2}>
+                    <Button variant="outlined" fullWidth onClick={toggleArchivedView}>
+                        {showArchived ? "Активні завдання" : "Архівовані завдання"}
+                    </Button>
+                </Grid>
+            </Grid>
+        </Box>
+
+        <Grid container spacing={3} justifyContent="center">
+        {filteredTasks.length > 0 ? (
+            filteredTasks.map((task) => (
+                <Grid item xs={12} md={6} lg={4} key={task.id}>
+                    <Card elevation={4}>
+                        <CardContent>
+                            <Typography variant="h6">{task.title}</Typography>
+                            <Typography variant="body2" color="textSecondary">
+                                {task.description}
+                            </Typography>
+                            <Typography variant="body2">
+                                Категорія: <strong>{task.category}</strong>
+                            </Typography>
+                            <Typography variant="body2">
+                                Пріоритет:{" "}
+                                <strong>
+                                    {task.priority === 0
+                                        ? "Низький"
+                                        : task.priority === 1
+                                        ? "Середній"
+                                        : "Високий"}
+                                </strong>
+                            </Typography>
+                            <Typography variant="body2">
+                                Термін: {new Date(task.dueDate).toLocaleDateString()}
+                            </Typography>
+                        </CardContent>
+                        <CardActions sx={{ justifyContent: "space-between" }}>
+                            <FormControlLabel
+                                control={
+                                    <Checkbox
+                                        checked={task.status}
+                                        onChange={() => handleTaskCompletion(task.id, task.status)}
                                     />
-                                    <Button variant="outlined" color="error" onClick={() => handleDeleteTask(task.id)}>
-                                        Видалити
-                                    </Button>
-                                </CardActions>
-                            </Card>
-                        </Grid>
-                    ))}
+                                }
+                                label={task.status ? "Виконано" : "Невиконано"}
+                            />
+                            <Button
+                                variant="outlined"
+                                color="error"
+                                onClick={() => handleDeleteTask(task.id)}
+                            >
+                                Видалити
+                            </Button>
+                            <Button
+                                variant="outlined"
+                                onClick={() => handleArchiveTask(task.id)}
+                            >
+                                Архівувати
+                            </Button>
+                        </CardActions>
+                    </Card>
                 </Grid>
-            </Container>
-        </>
+            ))
+        ) : (
+            <Typography variant="body1" color="textSecondary" align="center" sx={{ mt: 4 }}>
+                Завдань не знайдено
+            </Typography>
+        )}
+    </Grid>
+
+    </Container>
+</>
+
     );
 };
 

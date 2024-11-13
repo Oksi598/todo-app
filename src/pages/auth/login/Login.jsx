@@ -24,7 +24,6 @@ const Login = () => {
     const { isAuth } = useSelector((state) => state.auth);
     const { signIn } = useAction();
 
-    const clientId = "1071227799664-848r4gmtminclfnnoiikek893m974t90.apps.googleusercontent.com";
 
     const handleSubmit = async (values) => {
         const response = await signIn(values);

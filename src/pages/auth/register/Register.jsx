@@ -49,7 +49,7 @@ const Register = () => {
 
     useEffect(() => {
         if (isAuth) {
-            navigate('/');
+            navigate('/register');
         }
     }, [isAuth, navigate]);
 
