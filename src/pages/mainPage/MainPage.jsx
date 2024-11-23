@@ -22,7 +22,7 @@ import {
     Checkbox,
 } from "@mui/material";
 import { useSelector } from "react-redux";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 const MainPage = () => {
     const { user } = useSelector((state) => state.auth);
@@ -35,21 +35,26 @@ const MainPage = () => {
     const [statusFilter, setStatusFilter] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
     const [showArchived, setShowArchived] = useState(false);
-    
+    const navigate = useNavigate();
 
     useEffect(() => {
-        if (user && user) {
+        if (user) {
             fetchTasks();
         } else {
             console.error("User is not authorized.");
+            navigate("/login");
         }
-    }, [user, showArchived, statusFilter, categoryFilter]);
+    }, [user, showArchived, statusFilter, categoryFilter, navigate]);
 
     const fetchTasks = async () => {
         try {
-            const token = user?.token || localStorage.getItem("auth");
-            if (!token) return;
-    
+            const token = localStorage.getItem("auth");
+            if (!token) {
+                console.error("No token found.");
+                navigate("/login");
+                return;
+            }
+
             const params = {
                 status:
                     statusFilter === "completed"
@@ -59,23 +64,21 @@ const MainPage = () => {
                         : undefined,
                 category: categoryFilter || undefined,
             };
-    
+
             const url = showArchived
                 ? "https://localhost:5000/api/tasks/archived"
                 : "https://localhost:5000/api/tasks";
-    
+
             const response = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` },
-                params, 
+                params,
             });
-    
+
             setTasks(response.data);
         } catch (error) {
-            console.error("Error fetching tasks:", error);
+            console.error("Error fetching tasks:", error.response || error);
         }
     };
-    
-      
 
     const handleAddTask = async () => {
         if (newTask.trim() === "") return;
@@ -90,7 +93,13 @@ const MainPage = () => {
         };
 
         try {
-            const token = user?.token || localStorage.getItem("token");
+            const token = localStorage.getItem("auth");
+            if (!token) {
+                console.error("No token found.");
+                navigate("/login");
+                return;
+            }
+
             await axios.post("https://localhost:5000/api/tasks", task, {
                 headers: { Authorization: `Bearer ${token}` },
             });
@@ -101,13 +110,19 @@ const MainPage = () => {
             setDueDate("");
             fetchTasks();
         } catch (error) {
-            console.error("Error adding task:", error);
+            console.error("Error adding task:", error.response || error);
         }
     };
 
     const handleTaskCompletion = async (taskId, currentStatus) => {
         try {
-            const token = user?.token || localStorage.getItem("token");
+            const token = localStorage.getItem("auth");
+            if (!token) {
+                console.error("No token found.");
+                navigate("/login");
+                return;
+            }
+
             await axios.put(
                 `https://localhost:5000/api/tasks/${taskId}`,
                 { status: !currentStatus },
@@ -115,44 +130,49 @@ const MainPage = () => {
             );
             fetchTasks();
         } catch (error) {
-            console.error("Error updating task completion:", error);
+            console.error("Error updating task completion:", error.response || error);
         }
     };
 
     const handleDeleteTask = async (taskId) => {
         try {
-            const token = user?.token || localStorage.getItem("token");
+            const token = localStorage.getItem("auth");
+            if (!token) {
+                console.error("No token found.");
+                navigate("/login");
+                return;
+            }
+
             await axios.delete(`https://localhost:5000/api/tasks/${taskId}`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchTasks();
         } catch (error) {
-            console.error("Error deleting task:", error);
+            console.error("Error deleting task:", error.response || error);
         }
     };
 
     const handleArchiveTask = async (taskId) => {
         try {
-            const token = user?.token || localStorage.getItem("token");
+            const token = localStorage.getItem("auth");
+            if (!token) {
+                console.error("No token found.");
+                navigate("/login");
+                return;
+            }
+
             await axios.post(`https://localhost:5000/api/tasks/${taskId}/archive`, {}, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             fetchTasks();
         } catch (error) {
-            console.error("Error archiving task:", error);
+            console.error("Error archiving task:", error.response || error);
         }
     };
 
     const toggleArchivedView = () => {
         setShowArchived(!showArchived);
     };
-    //const filteredTasks = tasks.filter((task) => {
-    //    return (
-    //        (statusFilter === "" || task.status === (statusFilter === "completed")) &&
-    //        (categoryFilter === "" || task.category === categoryFilter)
-    //    );
-    //});
-
 
     return (
         <>
@@ -169,12 +189,12 @@ const MainPage = () => {
                     </div>
                 </Toolbar>
             </AppBar>
-    
+
             <Container sx={{ pt: 4 }}>
                 <Typography variant="h4" gutterBottom align="center">
                     Список справ
                 </Typography>
-    
+
                 <Box sx={{ mb: 4 }}>
                     <Grid container spacing={2}>
                         <Grid item xs={12} md={6}>
@@ -220,7 +240,7 @@ const MainPage = () => {
                         </Grid>
                     </Grid>
                 </Box>
-    
+
                 <Box sx={{ mb: 4 }}>
                     <Grid container spacing={2} justifyContent="center">
                         <Grid item xs={12} md={5}>
@@ -251,72 +271,60 @@ const MainPage = () => {
                         </Grid>
                     </Grid>
                 </Box>
-    
+
                 <Grid container spacing={3} justifyContent="center">
-                {tasks && tasks.length > 0 ? (
-                    tasks.map((task) => (
-                        <Grid item xs={12} md={6} lg={4} key={task.id}>
-                            <Card elevation={4}>
-                                <CardContent>
-                                    <Typography variant="h6">{task.title}</Typography>
-                                    <Typography variant="body2" color="textSecondary">
-                                        {task.description || "Опис відсутній"}
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        Категорія: <strong>{task.category || "Невідомо"}</strong>
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        Пріоритет:{" "}
-                                        <strong>
-                                            {task.priority === 0
-                                                ? "Низький"
-                                                : task.priority === 1
-                                                ? "Середній"
-                                                : task.priority === 2
-                                                ? "Високий"
-                                                : "Невідомий"}
-                                        </strong>
-                                    </Typography>
-                                    <Typography variant="body2">
-                                        Термін: {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : "Не встановлено"}
-                                    </Typography>
-                                </CardContent>
-                                <CardActions sx={{ justifyContent: "space-between" }}>
-                                    <FormControlLabel
-                                        control={
-                                            <Checkbox
-                                                checked={task.status}
-                                                onChange={() => handleTaskCompletion(task.id, task.status)}
-                                            />
-                                        }
-                                        label={task.status ? "Виконано" : "Невиконано"}
-                                    />
-                                    <Button
-                                        variant="outlined"
-                                        color="error"
-                                        onClick={() => handleDeleteTask(task.id)}
-                                    >
-                                        Видалити
-                                    </Button>
-                                    <Button
-                                        variant="outlined"
-                                        onClick={() => handleArchiveTask(task.id)}
-                                    >
-                                        Архівувати
-                                    </Button>
-                                </CardActions>
-                            </Card>
-                        </Grid>
-                    ))
-                ) : (
-                    <Typography variant="body1" color="textSecondary" align="center" sx={{ mt: 4 }}>
-                        Завдань не знайдено
-                    </Typography>
-                )}
+                    {tasks && tasks.length > 0 ? (
+                        tasks.map((task) => (
+                            <Grid item xs={12} md={6} lg={4} key={task.id}>
+                                <Card elevation={4}>
+                                    <CardContent>
+                                        <Typography variant="h6">{task.title}</Typography>
+                                        <Typography variant="body2" color="textSecondary">
+                                            {task.description}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            Категорія: {task.category}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            Пріоритет: {["Низький", "Середній", "Високий"][task.priority]}
+                                        </Typography>
+                                        <Typography variant="body2">
+                                            Термін: {new Date(task.dueDate).toLocaleDateString()}
+                                        </Typography>
+                                    </CardContent>
+                                    <CardActions>
+                                        <Button
+                                            onClick={() => handleTaskCompletion(task.id, task.status)}
+                                            size="small"
+                                            color={task.status ? "success" : "default"}
+                                        >
+                                            {task.status ? "Завершено" : "Позначити виконаним"}
+                                        </Button>
+                                        <Button size="small" color="error" onClick={() => handleDeleteTask(task.id)}>
+                                            Видалити
+                                        </Button>
+                                        {!showArchived && (
+                                            <Button
+                                                size="small"
+                                                color="secondary"
+                                                onClick={() => handleArchiveTask(task.id)}
+                                            >
+                                                Архівувати
+                                            </Button>
+                                        )}
+                                    </CardActions>
+                                </Card>
+                            </Grid>
+                        ))
+                    ) : (
+                        <Typography variant="body1" align="center">
+                            Завдання не знайдено
+                        </Typography>
+                    )}
                 </Grid>
             </Container>
         </>
     );
-};    
+};
 
 export default MainPage;
